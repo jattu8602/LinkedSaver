@@ -1,40 +1,50 @@
 
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 
-const DB_PATH = path.join(process.cwd(), 'views.json');
+// We use an external free counter API because Vercel/Serverless doesn't support persistent file writing
+// https://counterapi.dev/
+const NAMESPACE = 'linkedsaver-users-v1';
+const KEY = 'views';
 
-function getViews() {
+async function getViews() {
   try {
-    if (!fs.existsSync(DB_PATH)) {
-       // Start with 0
-      fs.writeFileSync(DB_PATH, JSON.stringify({ count: 0 }));
-      return 0;
-    }
-    const data = JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
+    // If we just want to read, we can use the 'info' endpoint or just infer from the 'up' endpoint if we want to increment
+    // Let's assume we want to increment on POST and read on GET?
+    // The previous implementation:
+    // GET -> return count
+    // POST -> increment and return count
+
+    const res = await fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/${KEY}/`);
+    if (!res.ok) return 0;
+    const data = await res.json();
     return data.count || 0;
   } catch (error) {
     return 0;
   }
 }
 
-function incrementViews() {
+async function incrementViews() {
   try {
-    const current = getViews();
-    const newCount = current + 1;
-    fs.writeFileSync(DB_PATH, JSON.stringify({ count: newCount }));
-    return newCount;
+    const res = await fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/${KEY}/up`);
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return data.count || 0;
   } catch (error) {
     return 0;
   }
 }
 
 export async function GET() {
-  return NextResponse.json({ count: getViews() });
+  // Just get the current count without incrementing
+  // The basic get endpoint for counterapi gives details
+  // Note: counterapi.dev might return 404 if key doesn't loop exist yet.
+  // The 'up' command creates it if missing.
+  // So for GET, if it fails, we return 0.
+  const count = await getViews();
+  return NextResponse.json({ count });
 }
 
 export async function POST() {
-  const count = incrementViews();
+  const count = await incrementViews();
   return NextResponse.json({ count });
 }

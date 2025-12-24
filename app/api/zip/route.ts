@@ -71,7 +71,7 @@ export async function POST(request: Request) {
 
     const readable = nodeStreamToReadable(stream);
 
-    return new NextResponse(readable as any, {
+    return new NextResponse(readable as unknown as ReadableStream<Uint8Array>, {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': 'attachment; filename="download.zip"',
