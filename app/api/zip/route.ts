@@ -2,14 +2,15 @@ import { NextResponse } from 'next/server';
 import archiver from 'archiver';
 import { PassThrough } from 'stream';
 
-// Helper to convert stream to iterator for NextResponse
-function streamToIterator(stream: PassThrough) {
-  const iterator = async function* () {
-    for await (const chunk of stream) {
-      yield chunk;
-    }
-  };
-  return iterator();
+// Helper to convert Node stream to Web ReadableStream
+function nodeStreamToReadable(stream: PassThrough) {
+  return new ReadableStream({
+    start(controller) {
+      stream.on('data', (chunk) => controller.enqueue(chunk));
+      stream.on('end', () => controller.close());
+      stream.on('error', (err) => controller.error(err));
+    },
+  });
 }
 
 export async function POST(request: Request) {
@@ -30,25 +31,47 @@ export async function POST(request: Request) {
     archive.pipe(stream);
 
     // Process each file
-    for (const file of files) {
-      try {
-        const response = await fetch(file.url);
-        if (!response.ok) continue; // Skip failed files
+    // We do this async but don't await the entire process before returning the stream
+    // However, archiver needs data to be appended.
+    // Since we are streaming the output, we can run the processing effectively "in background"
+    // relative to the stream start, OR we can await it if we buffer.
+    // Archive.append is synchronous for buffers usually, but fetching is async.
+    // The current logic awaits all fetches BEFORE returning the response.
+    // This is fine for small files but for large files it might timeout.
+    // Ideally we should process and push to stream asynchronously.
 
-        // We need to convert the web stream to a node stream or buffer
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+    // For now, to keep logic simple and matching previous behavior:
+    // We will await fetches and then finalize.
+    // But to avoid blocking the return of the stream (TTFB), we should PROMISE the work.
 
-        archive.append(buffer, { name: file.name });
-      } catch (e) {
-        console.error(`Failed to fetch ${file.url}`, e);
-      }
-    }
+    const processing = async () => {
+        for (const file of files) {
+          try {
+            const response = await fetch(file.url);
+            if (!response.ok) continue;
 
-    // Finalize the archive (this indicates we are done appending files)
-    archive.finalize();
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
 
-    return new NextResponse(streamToIterator(stream), {
+            archive.append(buffer, { name: file.name });
+          } catch (e) {
+            console.error(`Failed to fetch ${file.url}`, e);
+          }
+        }
+        archive.finalize();
+    };
+
+    // Start processing without awaiting it, so we can return the stream immediately?
+    // standard `archiver` might need error handling if we don't await.
+    // But the previous implementation awaited everything. Let's stick to awaiting to be safe against errors for now,
+    // unless timeout is an issue. The user didn't complain about timeout, just build error.
+
+    // Actually, let's keep the exact synchronous-like flow found in previous but fix the type error.
+    await processing();
+
+    const readable = nodeStreamToReadable(stream);
+
+    return new NextResponse(readable as any, {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': 'attachment; filename="download.zip"',
