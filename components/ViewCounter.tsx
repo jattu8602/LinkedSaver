@@ -5,7 +5,7 @@ import { Eye, Heart } from 'lucide-react';
 
 // Sub-component for consistency
 const BadgeContainer = ({ children, colorClass }: { children: React.ReactNode, colorClass?: string }) => (
-    <div className={`flex items-center gap-2 px-3 h-9 rounded-full border border-zinc-700/50 backdrop-blur-sm bg-zinc-800/50 ${colorClass || ''} w-full justify-center`}>
+    <div className={`flex items-center gap-1.5 md:gap-2 px-2 md:px-3 h-9 rounded-full border border-zinc-700/50 backdrop-blur-sm bg-zinc-800/50 ${colorClass || ''} w-full justify-center`}>
         {children}
     </div>
 );
@@ -102,7 +102,7 @@ export function ViewCounter() {
 
     const ThanksItem = (
         <BadgeContainer>
-            <span className="text-xs text-zinc-300 font-medium whitespace-nowrap">Thanks for showing love</span>
+            <span className="text-[10px] md:text-xs text-zinc-300 font-medium whitespace-nowrap">Thanks for showing love</span>
             <Heart className="w-3 h-3 text-red-500 fill-red-500 animate-pulse" />
         </BadgeContainer>
     );
@@ -110,14 +110,14 @@ export function ViewCounter() {
     // If still counting, just show the static single item to avoid glitches
     if (!hasCounted) {
         return (
-             <div className="h-9 min-w-[170px] flex items-center justify-end overflow-hidden">
+             <div className="h-9 min-w-[150px] md:min-w-[170px] flex items-center justify-end overflow-hidden">
                 {ViewsItem}
              </div>
         );
     }
 
     return (
-        <div className="h-9 min-w-[180px] overflow-hidden relative">
+        <div className="h-9 min-w-[150px] md:min-w-[180px] overflow-hidden relative">
             {/* The Sliding Container */}
             <div
                 className={`flex flex-col w-full absolute top-0 left-0 ${isTransitioning ? 'transition-transform duration-500 ease-in-out' : ''}`}
