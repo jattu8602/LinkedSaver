@@ -42,7 +42,10 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
-  }
+  },
+  verification: {
+    google: 'ZttVdYTQVDMo0fsb_qg56UXGoYb5ikfWGxb3ySWDHWY',
+  },
 };
 
 export default function RootLayout({
